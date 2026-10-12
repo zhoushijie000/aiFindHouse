@@ -60,17 +60,17 @@ const house = {
  ]
 };
 const policy = {
- key:'policy', title:'AI 政策', subtitle:'先查政策，再基于原文做准确解读', file:'AI政策流程.html', other:'AI找房流程.html', defaultNode:'P05',
- description:'查询、时效判断与原文解读分开处理。每个紫色节点均附 AI 输出说明。',
+ key:'policy', title:'AI 政策', subtitle:'查询真实政策，概括结果并继续咨询', file:'AI政策流程.html', other:'AI找房流程.html', defaultNode:'P02',
+ description:'提取查询条件，查询真实政策并展示概括；零结果候选由系统验证后展示。',
  source:'2.4.1、2.4.3 — 2.4.7', height:3430,
- phases:[{title:'理解问题',sub:'意图 · 区域 · 类型 · 时间',y:0},{title:'查询与时效',sub:'业务数据 · 有效期 · 零结果',y:990},{title:'概括与解读',sub:'正文校验 · 有限度解释',y:1500},{title:'展示与继续',sub:'问题验证 · 卡片 · 历史',y:2730}],
+ phases:[{title:'理解问题',sub:'意图 · 区域 · 类型 · 时间',y:0},{title:'查询与时效',sub:'业务数据 · 有效期 · 零结果',y:990},{title:'组织结果',sub:'有结果概括 · 零结果引导',y:1500},{title:'展示与继续',sub:'系统展示 · 卡片 · 历史',y:2730}],
  rules:['仅基于政策库及已获取原文作答','缺少正文，不补全标准或条件','区分已生效、即将生效、已失效','政策最多 5 条；推荐问题最多 3 个'],
  nodes:[
  n('P00','用户提出政策问题','例如：青羊区现在有哪些购房支持政策？','user',1,55),
  n('P01','识别业务意图','区分找房、楼盘解读、查政策、政策解读','ai',1,205),
  n('PR','转入对应业务流程','已识别为其他业务，进入对应流程','system',2,205,{h:190,links:[{label:'AI 找房 →',file:'AI找房流程.html'},{label:'楼盘解读 →',file:'楼盘解读流程.html'},{label:'政策解读 →',file:'政策解读流程.html'}]}),
  n('PG','未识别意图：系统固定引导',fixedIntentGuidance,'system',0,145,{h:220,fixedReply:true}),
- n('P02','提取政策查询条件','区域、政策类型、当前 / 最新、指定政策及解读意图','ai',1,415),
+ n('P02','提取政策查询条件','区域、政策类型、当前 / 最新及指定政策','ai',1,415),
  n('PD1','信息是否足够查询？','“成都最新政策”可直接查；仅追问必要信息','decision',1,625),
  n('P03','生成条件补充追问','聚焦缺失条件，不要求用户填满所有字段','ai',0,625),
  n('PU1','用户补充或修改','保留本轮政策上下文，覆盖明确修改条件','user',0,840),
@@ -80,18 +80,10 @@ const policy = {
  n('PD2','是否存在匹配政策？','“当前”仅选有效政策；“最新”须标明状态','decision',1,1250),
  n('P04','生成政策结果概括','简短总结已查得信息；仅有标题时不延伸正文内容','ai',1,1555),
  n('P06','生成零结果说明与候选问题','依照政策库真实覆盖范围，生成可验证的问题','ai',2,1555),
- n('PD3','用户是否需要政策解读？','查询型问题可直接进入推荐问题生成','decision',1,1770),
- n('PD4','是否取得完整政策正文？','正文可追溯、可读且内容足够支撑问题','decision',1,1940),
- n('P05','基于政策原文解读','结论 + 注意事项 + 原文入口；不作个人资格承诺','ai',1,2120,{link:'政策解读流程.html',h:190}),
- n('PN','正文不足：使用受限说明','仅说明可查询到该政策，标准及条件请查看详情','system',2,2120),
- n('P07','生成下一步候选问题','围绕真实政策继续查询；解读问题必须有正文支持','ai',1,2370),
- n('PV','实际查询验证推荐问题','检查有数据、有支撑；最多保留 3 个有效问题','system',1,2580),
  n('PS','展示回复与政策卡片','政策 ≤ 5；名称、标签、有效期、状态、真实详情入口','system',1,2790),
- n('PZ','没有通过验证的问题','隐藏问题区；保留用户输入及修改区域 / 类型入口','system',2,2790),
  n('PA','任一 AI 节点异常','超时、无效结构或超出数据的政策断言','system',0,1555),
  n('PE2','AI 失败提示与重试','“安安暂时开小差了，请稍后再试。”保留查询条件','error',0,1740),
  n('PE3','重试失败节点','继续使用原始政策数据，不补造政策作为降级回答','system',0,1940),
- n('PX','可选追问失败：保留结果','P07 失败时隐藏推荐问题，继续展示已有说明和卡片','system',0,2790),
  n('PC','用户继续操作','点击推荐问题 / 自由追问 / 查看政策详情','user',1,3010),
  n('PB','查看政策详情或原文','使用接口返回的政策 ID 和实际页面路径','system',2,3010),
  n('PM','保存并恢复会话','历史问题、回答、卡片、追问、条件和滚动位置','system',2,3220),
@@ -106,19 +98,41 @@ const policy = {
  e('PE1','PQ',{a:'bottom',b:'right',via:[[691,980],[551,980],[551,930]],dashed:true,label:'重试',lx:670,ly:980}),
  e('PQ','PT'),e('PT','PD2'),e('PD2','P04',{label:'有结果',lx:410,ly:1430}),
  e('PD2','P06',{a:'right',b:'top',via:[[691,1300]],label:'零结果',lx:691,ly:1430}),
- e('P04','PD3'),e('PD3','PD4',{label:'需要',lx:410,ly:1903}),
- e('PD3','P07',{a:'left',b:'left',via:[[278,1820],[278,2447]],label:'不需要解读',lx:279,ly:2302}),
- e('PD4','P05',{label:'正文完整',lx:410,ly:2080}),e('PD4','PN',{a:'right',b:'top',via:[[691,1990]],label:'正文不足',lx:691,ly:2079}),
- e('P05','P07'),e('PN','P07',{via:[[691,2325],[410,2325]],label:'不进入自由生成',lx:636,ly:2325}),
- e('P07','PV'),e('P06','PV',{a:'right',b:'right',via:[[816,1632],[816,2640]],label:'零结果候选待验证',lx:699,ly:2518}),
- e('PV','PS',{label:'存在有效候选',lx:410,ly:2745}),e('PV','PZ',{a:'right',b:'top',via:[[691,2640]],label:'全部未通过',lx:691,ly:2745}),
- e('PZ','PS',{a:'bottom',b:'right',via:[[691,2960],[549,2960],[549,2885]]}),
  e('PA','PE2',{label:'核心生成失败',lx:129,ly:1718}),e('PE2','PE3'),
- e('PA','PX',{a:'left',b:'left',via:[[5,1623],[5,2858]],dashed:true,label:'P07 失败',lx:99,ly:2690}),e('PX','PS',{a:'right',b:'left'}),
+ e('P04','PS'),
  e('PS','PC'),e('PC','PU2',{label:'追问 / 推荐问题',lx:410,ly:3170}),
  e('PC','PB',{a:'right',b:'left',label:'查看详情',lx:548,ly:2990}),e('PB','PM'),
  e('PM','PC',{a:'right',b:'right',via:[[816,3280],[816,3160],[549,3160],[549,3080]],dashed:true,label:'1 天内返回',lx:720,ly:3160})
  ]
 };
+// 移除查询流程内的解读分支后，收紧后续节点与连线布局。
+policy.nodes.forEach(item=>{if(item.y>=2370)item.y-=600;});
+policy.edges.forEach(item=>{if(item.ly>=2370)item.ly-=600;if(item.via)item.via=item.via.map(([x,y])=>[x,y>=2370?y-600:y]);});
+policy.phases.forEach(item=>{if(item.y>=2370)item.y-=600;});
+policy.height-=600;
+// 查询时一并完成时效与排序，减少主流程中的重复处理节点。
+const policyQuery = policy.nodes.find(item=>item.id==='PQ');
+policyQuery.title='查询政策并校验时效';
+policyQuery.description='读取真实政策，按系统规则判断有效状态并排序';
+policyQuery.rules=['按校验后的条件查询，返回真实政策及详情入口。','系统计算已生效、即将生效、已失效状态；日期缺失或冲突标为待核验。','当前仅查有效政策；最新按配置时间字段排序，并标明状态。','查询异常进入重试，不作为零结果。'];
+policy.nodes=policy.nodes.filter(item=>item.id!=='PT');
+policy.edges=policy.edges.filter(item=>item.from!=='PT'&&item.to!=='PT');
+policy.edges.push(e('PQ','PD2'));
+policy.nodes.forEach(item=>{if(item.y>=1045)item.y-=205;});
+policy.edges.forEach(item=>{if(item.ly>=1045)item.ly-=205;if(item.via)item.via=item.via.map(([x,y])=>[x,y>=1045?y-205:y]);});
+policy.phases.forEach(item=>{if(item.y>=990)item.y-=205;});
+policy.height-=205;
+policy.defaultNode='P02';
+policy.description='提取条件 → 查询政策 → 概括结果 → 展示；仅零结果提供验证通过的推荐问题。';
+// 有结果直接展示；零结果候选验证属于系统展示规则，不单列主流程节点。
+policy.nodes.forEach(item=>{if(item.y>=1985)item.y-=420;});
+policy.edges.forEach(item=>{if(item.ly>=1985)item.ly-=420;if(item.via)item.via=item.via.map(([x,y])=>[x,y>=1985?y-420:y]);});
+policy.phases.forEach(item=>{if(item.y>=1925)item.y-=420;});
+policy.height-=420;
+policy.phases[3].y=1530;
+const policyDisplay=policy.nodes.find(item=>item.id==='PS');
+policyDisplay.description='有结果展示概括与卡片；零结果展示说明及验证通过的推荐问题';
+policyDisplay.rules=['有结果：P04 后直接展示概括及最多 5 张真实政策卡片，不生成下一步问题。','零结果：先展示 P06 的说明；候选由系统在后台实际查询验证，通过后展示最多 3 个问题，无需再次调用 AI。','无候选、验证失败或无结果时隐藏推荐区，保留零结果说明和输入框。','后台验证不修改当前条件；用户选择推荐后才更新条件并重新查询。'];
+policy.edges.push(e('P06','PS',{a:'bottom',b:'right',via:[[691,1633]],label:'系统验证后展示',lx:691,ly:1552}));
 const {project,interpret}=require('./detail-flows')({n,e,fixedIntentGuidance});
 module.exports={house,policy,project,interpret};

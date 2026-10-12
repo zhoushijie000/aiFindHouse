@@ -6,7 +6,7 @@ module.exports = ({n,e,fixedIntentGuidance}) => {
   const node=(s,t,d,type,col,y,extra={})=>n(id(s),t,d,type,col,y,extra);
   const edge=(a,b,o={})=>e(id(a),id(b),o);
   const links=[{label:'AI 找房 →',file:'AI找房流程.html'},{label:'查政策 →',file:'AI政策流程.html'},{label:(isPolicy?'楼盘解读':'政策解读')+' →',file:isPolicy?'楼盘解读流程.html':'政策解读流程.html'}];
-  return {
+  const flow = {
    key,title,file,defaultNode:id('04'),height:3200,source,
    subtitle:isPolicy?'读懂具体政策，保留原文依据':'围绕具体楼盘，解释真实项目数据',
    description:isPolicy?'先确认政策与正文，再说明结论、注意事项和原文入口。':'先确认楼盘，再查询价格、户型、配套等真实数据，按用户关注点解读。',
@@ -56,6 +56,50 @@ module.exports = ({n,e,fixedIntentGuidance}) => {
     edge('A','E2',{label:'核心节点失败',lx:129,ly:1848}),edge('E2','RETRY'),edge('A','SKIP',{a:'left',b:'left',via:[[5,1743],[5,2598]],dashed:true,label:'追问生成失败',lx:129,ly:2485}),edge('SKIP','S',{a:'right',b:'left'}),
     edge('S','C'),edge('C','NEXT',{label:'继续提问',lx:410,ly:2916}),edge('C','B',{a:'right',b:'left',label:'查看详情',lx:550,ly:2730}),edge('B','M'),edge('M','C',{a:'right',b:'right',via:[[816,3028],[816,2910],[548,2910],[548,2830]],dashed:true,label:'1 天内返回',lx:715,ly:2910})]
   };
+  if (isPolicy) {
+   const query=flow.nodes.find(item=>item.id==='IQ');
+   const source=flow.nodes.find(item=>item.id==='ISOURCE');
+   query.title='获取原文并核验来源及时效';
+   query.description='获取完整正文、真实入口及系统判定的生效状态';
+   query.rules=[...source.rules,'正文可用时进入解读；缺失或仅有片段时使用系统受限说明，不从标题补写内容。'];
+   flow.nodes=flow.nodes.filter(item=>!['ISOURCE','ID2'].includes(item.id));
+   flow.edges=flow.edges.filter(item=>!['ISOURCE','ID2'].includes(item.from)&&!['ISOURCE','ID2'].includes(item.to));
+   flow.edges.push(edge('Q','04'));
+   flow.nodes.forEach(item=>{if(item.y>=1250)item.y-=205;});
+   flow.edges.forEach(item=>{if(item.ly>=1250)item.ly-=205;if(item.via)item.via=item.via.map(([x,y])=>[x,y>=1250?y-205:y]);});
+   flow.phases.forEach(item=>{if(item.y>=1250)item.y-=205;});
+   flow.height-=205;
+   flow.nodes.forEach(item=>{if(item.y>=1250)item.y-=220;});
+   flow.edges.forEach(item=>{if(item.ly>=1250)item.ly-=220;if(item.via)item.via=item.via.map(([x,y])=>[x,y>=1250?y-220:y]);});
+   flow.phases.forEach(item=>{if(item.y>=1250)item.y-=220;});
+   flow.height-=220;
+   flow.edges.push(edge('Q','LIMIT',{a:'bottom',b:'top',via:[[410,1208],[691,1208]],dashed:true,label:'资料不足时系统提示',lx:660,ly:1208}));
+   flow.description='确认政策 → 获取原文 → 按问题解读 → 展示；对象不清再追问，正文不足给出受限说明。';
+  }
+  if (!isPolicy) {
+   const removed = new Set(['J05','JV','JNONE','JSKIP','JCHECK','JREJECT']);
+   flow.nodes = flow.nodes.filter(item => !removed.has(item.id));
+   flow.edges = flow.edges.filter(item => !removed.has(item.from) && !removed.has(item.to));
+   const get = suffix => flow.nodes.find(item => item.id === id(suffix));
+   Object.assign(get('NF'), {
+    description:'未查询到对应楼盘。您可以查询其他政策，或换个楼盘咨询。',
+    jump:id('01'), jumpLabel:'继续提问后重新识别意图',
+    rules:['系统固定提示：“未查询到对应楼盘。您可以查询其他政策，或换个楼盘咨询。”','仅对象匹配成功且返回零条数据时进入；接口失败仍走异常重试。','不生成候选问题，不展示楼盘卡片；保留输入框，等待用户继续提问。','下一轮重新识别意图：查询政策进入对应流程，新楼盘名称重新匹配，不沿用旧楼盘对象。']
+   });
+   get('A').description='生成失败进入重试，保留对象、问题及资料';
+   get('S').rules=['普通回复建议 50–150 字，长内容由详情页承载。','资料不足时只展示受限说明和已取得的项目资料；解读完成后直接展示，等待用户进入下一轮。','不生成或验证候选问题；界面卡片和真实路径由系统组装，保留手动输入框。'];
+   get('M').description='对象、问题、回答、卡片及滚动位置；1 天内恢复';
+   flow.edges.push(edge('04','S',{label:'解读完成，直接展示',lx:410,ly:1875}),edge('LIMIT','S',{a:'right',b:'right',via:[[816,1768],[816,2020]],label:'直接展示受限说明',lx:691,ly:1880}));
+   flow.nodes.forEach(item => { if(item.y >= 2530) item.y -= 610; });
+   flow.edges.forEach(item => {
+    if(item.ly >= 2470) item.ly -= 610;
+    if(item.via) item.via = item.via.map(([x,y]) => [x,y >= 2470 ? y-610 : y]);
+   });
+   flow.phases[2].sub='真实数据 · 解读输出';
+   flow.phases[3]={title:'展示与继续',sub:'直接展示 · 下一轮 · 恢复',y:1870};
+   flow.height=2590;
+  }
+  return flow;
  }
  return {
   project:create({key:'project',prefix:'J',title:'楼盘解读',file:'楼盘解读流程.html',kind:'project',intent:'PROJECT_QUERY',source:'2.4.2、2.4.4 — 2.4.7；楼盘意图定义及本次新增要求'}),

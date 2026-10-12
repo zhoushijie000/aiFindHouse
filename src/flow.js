@@ -2,6 +2,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const byId = Object.fromEntries(FLOW.nodes.map(n=>[n.id,n]));
 const specs = Object.fromEntries(DOCS.map(n=>[n.id,n]));
+const concisePrompts = ['policy','interpret'].includes(FLOW.key);
 const labels = {ai:'✦ AI 输出',system:'系统处理',user:'用户操作',decision:'◇ 条件判断',error:'异常处理'};
 let zoom = 1;
 let selected = FLOW.defaultNode;
@@ -33,7 +34,7 @@ function selectNode(id,open=false){
  const d=specs[id];
  const section=(name,values)=>`<section class="detail-section"><h3>${name}</h3><ul>${values.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section>`;
  const next=n.fixedReply?['等待用户继续提问，再重新识别业务意图。']:FLOW.edges.filter(e=>e.from===id).map(e=>`${e.label?e.label+' → ':''}${byId[e.to].title}`);
- $('#detail').innerHTML=`<div class="detail-kicker">${esc(id)} / ${labels[n.type]}</div><h2>${esc(n.title)}</h2><p class="detail-summary">${esc(d?d.summary:n.description)}</p>`+(d?`<button class="doc-primary" data-read="${id}"><span>阅读 AI 输出说明<small>输入 · 输出示例 · 约束 · 验收</small></span><span>↗</span></button><div class="doc-links"><a href="${encodeURI(d.file)}" target="_blank" rel="noopener">打开 .md 原文件 ↗</a><a href="${encodeURI(d.file)}" download>下载 Markdown ↓</a></div>${section('节点输入',d.inputs)}${section('AI 需要输出',d.outputs)}${section('关键约束',d.rules)}`:`${section('处理规则',systemRules(n))}${section('后续流向',next.length?next:['使用当前上下文返回对应节点继续'])}`)+`<div class="detail-boundary">依据需求文档 §${FLOW.source}<br>${d?'字段名与 JSON 结构为建议输出契约，供研发评审。':'业务规则由系统执行；此页面用于流程评审。'}</div>`;
+ $('#detail').innerHTML=`<div class="detail-kicker">${esc(id)} / ${labels[n.type]}</div><h2>${esc(n.title)}</h2><p class="detail-summary">${esc(d?d.summary:n.description)}</p>`+(d?`<button class="doc-primary" data-read="${id}"><span>阅读 AI 输出说明<small>${concisePrompts?'节点职责 · 输出格式 · 核心规则':'输入 · 输出示例 · 约束 · 验收'}</small></span><span>↗</span></button><div class="doc-links"><a href="${encodeURI(d.file)}" target="_blank" rel="noopener">打开 .md 原文件 ↗</a><a href="${encodeURI(d.file)}" download>下载 Markdown ↓</a></div>${section('节点输入',d.inputs)}${section('AI 需要输出',d.outputs)}${section('关键约束',d.rules)}`:`${section('处理规则',systemRules(n))}${section('后续流向',next.length?next:['使用当前上下文返回对应节点继续'])}`)+`<div class="detail-boundary">依据需求文档 §${FLOW.source}<br>${d?(concisePrompts?'提示词按节点职责、输出格式和核心规则组织。':'字段名与 JSON 结构为建议输出契约，供研发评审。'):'业务规则由系统执行；此页面用于流程评审。'}</div>`;
  if(d)$('#detail [data-read]').addEventListener('click',()=>openDoc(id));
  if(open&&innerWidth<=800)$('#inspector').classList.add('open');
 }
@@ -50,9 +51,7 @@ function systemRules(n){
  HS:['有匹配时由 H05 直接进入，仅展示回复、最多 5 个查询楼盘和 10 个随机推荐楼盘，不生成或验证推荐问题。','零匹配时仍展示随机推荐楼盘 10 个，不能将随机推荐描述为符合原查询条件。','推荐问题校验全部失败时隐藏问题区，允许手动继续输入。'],
  HV:['仅在零结果分支承接 H07；对候选条件实际查库，去重、过滤无结果候选，最多保留 3 个。','优先保留区域调预算，其次保留预算换区域，再扩大区域，最后放宽全部限制。','放宽候选不改写原条件，用户点击后才发起下一轮。'],
  PT:['系统根据当前日期与政策起止时间判断已生效 / 即将生效 / 已失效。','发布时间不等于生效时间；时间缺失或口径不明时标为待核验。','“当前”展示有效政策；“最新”按配置时间字段倒序，同时展示状态。'],
- PN:['固定受限说明：“当前可以查询到该政策，但具体补贴标准和申请条件需要进入政策详情查看。”','展示真实详情入口，不生成无法从正文核实的政策内容。'],
  PS:['单次最多 5 条政策，卡片展示名称、标签、有效期、状态和真实详情入口。','零结果不展示政策卡片；推荐问题必须通过政策库校验。','概括普通回复建议 50–150 字；复杂政策信息由详情页承载。'],
- PV:['候选问题必须用政策库实际数据验证；最多显示 3 个。','解读类候选需要正文支持；无正文不诱导生成申请条件。','验证失败或无结果的候选不展示，保留手动提问入口。'],
  HM:['用户问题、AI 回答、业务卡片、推荐追问、当前条件、滚动位置一并保存。','进入详情或其他业务页后，1 天内返回恢复原会话。'],
  PM:['用户问题、AI 回答、业务卡片、推荐追问、当前条件、滚动位置一并保存。','进入详情或其他业务页后，1 天内返回恢复原会话。'],
  HE1:['展示“楼盘数据暂时没有查询成功，请稍后重试。”','保留当前条件，重试当前接口；查询错误不按无匹配数据处理。'],
@@ -82,7 +81,7 @@ function markdown(s){
 function openDoc(id){const d=specs[id];if(!d)return;$('#modal-title').textContent=d.id+' · '+d.title;$('#modal-body').className='markdown';$('#modal-body').innerHTML=markdown(d.content);$('#modal-raw').href=d.file;$('#modal-raw').hidden=false;$('#modal-download').href=d.file;$('#modal-download').hidden=false;if(!$('#document-modal').open)$('#document-modal').showModal();$('#document-modal').scrollTop=0;}
 function openIndex(){
  $('#modal-title').textContent=FLOW.title+' · AI 节点文档';$('#modal-body').className='doc-list';$('#modal-raw').hidden=true;$('#modal-download').href='docs/README.md';$('#modal-download').hidden=false;
- $('#modal-body').innerHTML='<div class="notice">每份文档包含触发条件、输入、AI 输出 JSON 示例、约束和验收要点。输出契约为评审建议稿；示例不代表真实楼盘或政策。</div>'+DOCS.map(d=>`<div class="doc-item"><span>${d.id}</span><button data-read="${d.id}">${esc(d.title)}</button><a href="${encodeURI(d.file)}" target="_blank" rel="noopener">.md ↗</a><a href="${encodeURI(d.file)}" download>下载 ↓</a></div>`).join('')+'<div class="detail-boundary"><a href="docs/README.md" target="_blank">打开总说明与文档索引 ↗</a> · <a href="docs/需求原文.md" target="_blank">查看需求原文 ↗</a></div>';
+ $('#modal-body').innerHTML='<div class="notice">'+(concisePrompts?'每份提示词统一包含节点职责、输出格式和核心规则；输出内容须来自用户输入、有效上下文或系统真实数据。':'每份文档包含触发条件、输入、AI 输出 JSON 示例、约束和验收要点。输出契约为评审建议稿；示例不代表真实楼盘或政策。')+'</div>'+DOCS.map(d=>`<div class="doc-item"><span>${d.id}</span><button data-read="${d.id}">${esc(d.title)}</button><a href="${encodeURI(d.file)}" target="_blank" rel="noopener">.md ↗</a><a href="${encodeURI(d.file)}" download>下载 ↓</a></div>`).join('')+'<div class="detail-boundary"><a href="docs/README.md" target="_blank">打开总说明与文档索引 ↗</a> · <a href="docs/需求原文.md" target="_blank">查看需求原文 ↗</a></div>';
  $('#modal-body').querySelectorAll('[data-read]').forEach(el=>el.addEventListener('click',()=>openDoc(el.dataset.read)));$('#document-modal').showModal();
 }
 renderGraph();selectNode(selected);fitWidth();
